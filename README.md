@@ -1,4 +1,4 @@
-# OpticStudio CAD (Encrypted Public Web Release)
+# OpticStudio CAD (Encrypted & Obfuscated Public Web Release)
 
 This repository hosts the web distribution for **OpticStudio CAD** — an interactive 3D/2D optical column CAD and sequential ray-tracing simulator.
 
@@ -7,6 +7,7 @@ This repository hosts the web distribution for **OpticStudio CAD** — an intera
 The core optical algorithms, catalog prescriptions, and ray-tracing engine in this public distribution are **cryptographically protected** using **AES-256-GCM** with **PBKDF2 (100,000 iterations, SHA-256)**:
 
 - `app.bundle.enc`: AES-256-GCM encrypted binary package.
+- `loader.js`: Obfuscated in-memory decryptor with control flow flattening and base64 string tables.
 - Decryption occurs entirely **in-memory** in the user's browser via the native Web Crypto API upon entering the authorized password.
 - No plaintext optical prescriptions or source code exist in this public repository.
 
