@@ -423,7 +423,10 @@
 
   <!-- Application Entry Script (ES Module) -->
   
-  <!-- Secure OpticStudio CAD AES-256 Decryptor & Obfuscated Loader -->
+  <!-- Supabase CDN Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Secure OpticStudio CAD Supabase Multi-User Auth & AES-256 Decryptor -->
   <div id="auth-lock-overlay" class="auth-lock-overlay">
     <div class="auth-card">
       <div class="auth-card-glow"></div>
@@ -436,39 +439,40 @@
 
       <div class="auth-header-text">
         <h2 class="auth-title">OpticStudio Column CAD</h2>
-        <div class="auth-badge">Zemax Kernel • AES-256 Encrypted</div>
-        <p class="auth-desc">Enter access password to decrypt the optical simulation engine and CAD workspace.</p>
+        <div class="auth-badge">Supabase Multi-User • AES-256 Encrypted</div>
+        <p class="auth-desc">Sign in with your authorized research credentials to decrypt the optical simulation engine.</p>
       </div>
 
       <form id="auth-form" class="auth-form" onsubmit="event.preventDefault(); window.handleAuthSubmit();">
         <div class="auth-input-wrapper">
           <svg class="auth-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+            <polyline points="22,6 12,13 2,6"></polyline>
+          </svg>
+          <input type="email" id="auth-email" class="auth-input" placeholder="User email address..." autocomplete="username" autofocus required />
+        </div>
+
+        <div class="auth-input-wrapper">
+          <svg class="auth-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
             <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
           </svg>
-          <input type="password" id="auth-password" class="auth-input" placeholder="Enter simulation password..." autocomplete="current-password" autofocus required />
+          <input type="password" id="auth-password" class="auth-input" placeholder="Enter password..." autocomplete="current-password" required />
           <button type="button" id="btn-toggle-pwd" class="auth-pwd-toggle" title="Show / Hide Password">
             👁️
           </button>
         </div>
 
-        <div class="auth-options">
-          <label class="auth-checkbox-label">
-            <input type="checkbox" id="auth-remember-session" checked />
-            <span>Keep unlocked in this browser tab</span>
-          </label>
-        </div>
-
         <div id="auth-error-msg" class="auth-error-banner" style="display: none;"></div>
 
         <button type="submit" id="btn-auth-unlock" class="auth-submit-btn">
-          <span class="btn-text">🔓 Decrypt & Launch Simulator</span>
+          <span class="btn-text">🔓 Sign In & Decrypt Simulator</span>
           <div class="btn-spinner" style="display: none;"></div>
         </button>
       </form>
 
       <div class="auth-footer-note">
-        Hardware-accelerated in-memory AES-GCM decryption • Zero plaintext stored
+        Supabase Row-Level Security • In-Memory AES-GCM Decryption • Zero Plaintext Stored
       </div>
     </div>
   </div>
