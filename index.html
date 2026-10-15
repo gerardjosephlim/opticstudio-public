@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpticStudio Column CAD — Interactive Optical Column Design & Ray Tracing Simulator</title>
+  <meta name="description"
+    content="Professional web-based optical column CAD and sequential ray tracer. Model Thorlabs achromats, aspheres, objectives, dichroics, and Zemax ZMX optical prescriptions in real-time.">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- Three.js & OrbitControls for 3D Optomechanical Preview -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+
+<body>
+
+  <!-- Top Application Bar -->
+  <header class="app-header">
+    <div class="brand-section">
+      <div class="brand-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <path d="M12 3a15.3 15.3 0 0 1 4 9 15.3 15.3 0 0 1-4 9 15.3 15.3 0 0 1-4-9 15.3 15.3 0 0 1 4-9z" />
+        </svg>
+      </div>
+      <h1 class="brand-title">
+        OpticStudio CAD
+        <span class="brand-badge">Zemax Kernel v1.0</span>
+      </h1>
+    </div>
+
+    <!-- Presets & Quick Actions -->
+    <div class="header-controls">
+      <div class="control-group-inline">
+        <label class="control-label" for="preset-select">System Preset:</label>
+        <select id="preset-select">
+          <option value="EPI_FLUORESCENCE" selected>Full Epi-Fluorescence Column (Complete Microscope)</option>
+          <option value="LED_COLLIMATOR">LED Collimator Unit (M530D3 + Asphere)</option>
+          <option value="IMAGING_ARM">20X Objective + Doublet Relay</option>
+          <option value="DOUBLET_60MM">AC254-060-A Doublet Testbench (f=60mm)</option>
+          <option value="DOUBLET_80MM">AC254-080-A Doublet Testbench (f=80mm)</option>
+          <option value="DOUBLET_100MM">AC254-100-A Doublet Testbench (f=100mm)</option>
+        </select>
+      </div>
+
+      <div class="control-group-inline">
+        <button id="btn-export-json" class="btn-secondary" title="Export current column as JSON">
+          📤 Export JSON
+        </button>
+        <button id="btn-import-json" class="btn-secondary" title="Import a column configuration JSON">
+          📥 Import JSON
+        </button>
+        <input type="file" id="json-file-input" accept=".json,.JSON" style="display: none;">
+        <button id="btn-export-bom" class="btn-primary" title="Export Thorlabs Bill of Materials as CSV">
+          📋 Export BOM
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Application Body -->
+  <main class="app-main">
+
+    <!-- Left Sidebar: Component Catalog & Optical Column Tree -->
+    <aside class="sidebar-left">
+      <!-- Preset Details -->
+      <section class="sidebar-section">
+        <h2 class="section-title">Active Optical Configuration</h2>
+        <div id="preset-description" class="preset-description">
+          Loading optical prescription...
+        </div>
+      </section>
+
+      <!-- Add Component -->
+      <section class="sidebar-section">
+        <h2 class="section-title">Add Thorlabs Component</h2>
+        <div style="display: flex; gap: 6px;">
+          <select id="add-component-select" style="flex: 1;">
+            <option value="AC254-060-A">AC254-060-A (f=60mm Doublet)</option>
+            <option value="AC254-080-A">AC254-080-A (f=80mm Doublet)</option>
+            <option value="AC254-100-A">AC254-100-A (f=100mm Doublet)</option>
+            <option value="ACL25416U-A">ACL25416U-A (f=16mm Asphere)</option>
+            <option value="DL20X-PA">DL20X-PA (20X Plan Apo Objective)</option>
+            <option value="DMLP490">DMLP490 (490nm Dichroic Beamsplitter)</option>
+            <option value="BP145B1">BP145B1 (Pellicle Beamsplitter)</option>
+            <option value="M530D3">M530D3 (Mounted 530nm LED)</option>
+            <option value="DL5146-101S">DL5146-101S (405nm Laser Diode)</option>
+            <option value="APERTURE_STOP">SM1D12 (Iris Diaphragm / Stop)</option>
+            <option value="IMAGE_SENSOR">CMOS Camera Sensor Plane</option>
+          </select>
+          <button id="btn-preview-component-3d" class="btn-secondary" title="View 3D CAD & Specifications"
+            style="padding: 0 9px; font-size: 0.85rem;">🧊</button>
+          <button id="btn-add-component" class="btn-primary" title="Add element to optical rail">+</button>
+        </div>
+      </section>
+
+      <!-- Drag & Drop ZMX & JSON Importer -->
+      <section class="sidebar-section">
+        <h2 class="section-title">Import Zemax or Configuration</h2>
+        <div id="zmx-drop-zone" class="zmx-drop-zone">
+          <span class="drop-icon">📂</span>
+          <p class="drop-title">Drop .ZMX or .JSON file here</p>
+          <p class="drop-subtitle">or click to browse from disk</p>
+          <input type="file" id="zmx-file-input" accept=".zmx,.txt,.json,.JSON" style="display: none;" />
+        </div>
+      </section>
+
+      <!-- Optical Column Element List -->
+      <section class="sidebar-section" style="flex: 1;">
+        <h2 class="section-title">Column Assembly (Sequential)</h2>
+        <div id="elements-list" class="elements-list">
+          <!-- Populated dynamically by app.js -->
+        </div>
+      </section>
+    </aside>
+
+    <!-- Center Viewport: Multi-Tab Workbench (2D, 3D, Diagnostics, Prescription, BOM) -->
+    <section class="center-viewport">
+      <!-- Viewport Navigation Tabs -->
+      <nav class="viewport-tabs-bar">
+        <div class="tabs-group">
+          <button class="tab-btn active" data-tab="tab-2d">📐 2D Optical Bench</button>
+          <button class="tab-btn" data-tab="tab-3d">🧊 3D Optomechanics</button>
+          <button class="tab-btn" data-tab="tab-diagnostics">🎯 Spot & Aberrations</button>
+          <button class="tab-btn" data-tab="tab-prescription">📄 Prescription Data</button>
+          <button class="tab-btn" data-tab="tab-bom">🔩 Thorlabs BOM</button>
+        </div>
+
+        <!-- 2D View Controls Toolbar -->
+        <div class="canvas-toolbar">
+          <div class="control-group-inline">
+            <label class="control-label" for="ray-type-select">Ray Source:</label>
+            <select id="ray-type-select">
+              <option value="collimated" selected>Collimated Fan</option>
+              <option value="point">Point Source (Divergent)</option>
+              <option value="multi_wavelength">Polychromatic (RGB)</option>
+            </select>
+          </div>
+
+          <div class="control-group-inline">
+            <label class="control-label" for="ray-count-slider">Rays: <span id="ray-count-val">9</span></label>
+            <input type="range" id="ray-count-slider" min="3" max="31" step="2" value="9" style="width: 75px;" />
+          </div>
+
+          <div class="control-group-inline">
+            <label class="control-label" for="bundle-height-slider">Aperture: <span id="bundle-height-val">16
+                mm</span></label>
+            <input type="range" id="bundle-height-slider" min="2" max="25" step="1" value="16" style="width: 75px;" />
+          </div>
+
+          <div class="control-group-inline">
+            <label class="control-label"
+              style="display: flex; align-items: center; gap: 5px; cursor: pointer; color: #a78bfa; font-weight: 500;"
+              title="Toggle display of Part Number and Description on 2D components">
+              <input type="checkbox" id="toggle-part-numbers" checked style="accent-color: #a78bfa; cursor: pointer;" />
+              Component Labels (P/N & Desc)
+            </label>
+          </div>
+
+          <div class="control-group-inline">
+            <label class="control-label"
+              style="display: flex; align-items: center; gap: 5px; cursor: pointer; color: #38bdf8; font-weight: 500;">
+              <input type="checkbox" id="toggle-comp-foci" checked style="accent-color: #38bdf8; cursor: pointer;" />
+              Component Foci (F')
+            </label>
+          </div>
+
+          <div class="control-group-inline">
+            <label class="control-label" for="beam-path-select" style="color: #34d399; font-weight: 600;">Path:</label>
+            <select id="beam-path-select"
+              style="font-size: 0.74rem; padding: 2px 7px; background: rgba(15,23,42,0.85); border: 1px solid rgba(52,211,153,0.5); color: #34d399; border-radius: 4px; cursor: pointer;">
+              <option value="ALL" selected>Dual-Arm (Excite + Emission)</option>
+              <option value="EXCITATION">Excitation Arm Only</option>
+              <option value="EMISSION">Emission Arm Only</option>
+            </select>
+          </div>
+        </div>
+      </nav>
+
+      <!-- Tab 1: 2D Interactive Optical Bench -->
+      <div id="tab-2d" class="tab-content active" style="position: relative;">
+        <canvas id="optical-canvas"></canvas>
+
+        <!-- Floating Component Details Hover Tooltip -->
+        <div id="component-hover-tooltip" class="component-hover-tooltip" style="display: none;"></div>
+
+        <!-- Floating On-Canvas Quick Action HUD -->
+        <div id="canvas-hud" class="canvas-hud">
+          <div class="hud-pill hud-pill-title">
+            <span id="hud-selected-name">Selected: None</span>
+            <span id="hud-orientation-badge" class="hud-badge">NORMAL</span>
+          </div>
+
+          <div class="hud-divider"></div>
+
+          <!-- Orthogonal Y-Axis Controls -->
+          <div class="hud-group">
+            <span class="hud-label">↕ Orthogonal Y:</span>
+            <button id="hud-btn-y-up" class="hud-btn" title="Move Up +1.0mm (or Up Arrow key)">▲ +1mm</button>
+            <button id="hud-btn-y-down" class="hud-btn" title="Move Down -1.0mm (or Down Arrow key)">▼ -1mm</button>
+            <button id="hud-btn-y-zero" class="hud-btn hud-btn-accent"
+              title="Center on Optical Axis (Y=0, or '0' key)">⌖ Center (Y=0)</button>
+            <span id="hud-y-val" class="hud-val">Y: 0.0mm</span>
+          </div>
+
+          <div class="hud-divider"></div>
+
+          <!-- Optical Axis Z-Axis Controls -->
+          <div class="hud-group">
+            <span class="hud-label">↔ Optical Axis Z:</span>
+            <button id="hud-btn-z-dec" class="hud-btn" title="Shift Left -1.0mm (or Left Arrow key)">◀ -1mm</button>
+            <button id="hud-btn-z-inc" class="hud-btn" title="Shift Right +1.0mm (or Right Arrow key)">▶ +1mm</button>
+            <span id="hud-z-val" class="hud-val">Z: 0.0mm</span>
+          </div>
+
+          <div class="hud-divider"></div>
+
+          <!-- Component Rotation (90° Steps) Controls -->
+          <div class="hud-group">
+            <span class="hud-label">⟳ Rotation:</span>
+            <button id="hud-btn-rot-ccw" class="hud-btn" title="Rotate component -90° (Counter-Clockwise)">⟲
+              -90°</button>
+            <button id="hud-btn-rotate" class="hud-btn hud-btn-flip" title="Rotate component +90° (or 'R' key)">⟳
+              +90°</button>
+            <span id="hud-rot-val" class="hud-val">0°</span>
+          </div>
+        </div>
+
+        <!-- Help hint bar at bottom of 2D workbench -->
+        <div class="canvas-hint-bar">
+          <span>💡 <strong>Orthogonal Movement:</strong> Drag vertical yellow handles or HUD <strong>▲ / ▼</strong>
+            (press <strong>↑ / ↓</strong>) • <strong>Axis Locks:</strong> Use <strong>🔒 Lock Z / Y</strong> on right
+            panel • <strong>Rotate 90°:</strong> Press <strong>'R'</strong> (or Shift+R) • <strong>Flip 180°:</strong>
+            Press <strong>'F'</strong> • <strong>Reset Y:</strong> Press <strong>'0'</strong></span>
+        </div>
+      </div>
+
+      <!-- Tab 2: 3D Optomechanics Preview (Three.js) -->
+      <div id="tab-3d" class="tab-content">
+        <div id="view-3d-container"></div>
+      </div>
+
+      <!-- Tab 3: Spot Diagram & Transverse Ray Aberrations -->
+      <div id="tab-diagnostics" class="tab-content">
+        <div class="diagnostics-container">
+          <div class="plot-card">
+            <h3 class="plot-title">
+              Image Plane Spot Diagram
+              <span class="brand-badge">Airy Disk vs Ray Intercepts</span>
+            </h3>
+            <div class="plot-canvas-wrapper">
+              <canvas id="spot-canvas" width="400" height="340"></canvas>
+            </div>
+          </div>
+
+          <div class="plot-card">
+            <h3 class="plot-title">
+              Transverse Ray Fan ($E_y$ vs $P_y$)
+              <span class="brand-badge">Spherical & Coma</span>
+            </h3>
+            <div class="plot-canvas-wrapper">
+              <canvas id="fan-canvas" width="400" height="340"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 4: Prescription Raw Viewer -->
+      <div id="tab-prescription" class="tab-content">
+        <div class="scrollable-view-content">
+          <pre id="prescription-raw-viewer" class="code-viewer"></pre>
+        </div>
+      </div>
+
+      <!-- Tab 5: Thorlabs BOM & Lens Tube Advisor -->
+      <div id="tab-bom" class="tab-content">
+        <div id="bom-content" class="scrollable-view-content">
+          <!-- Populated by app.js -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Sidebar: Selected Component Inspector & Optical Performance Metrics -->
+    <aside class="sidebar-right">
+      <!-- Live Optical Performance Metrics -->
+      <section class="sidebar-section">
+        <h2 class="section-title">Optical System Performance</h2>
+        <div class="metrics-grid">
+          <div class="metric-card" title="Combined focal length of the active optical column train">
+            <div class="metric-label">System Combined EFL</div>
+            <div id="metric-efl" class="metric-value highlight">--</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Back Focal Length</div>
+            <div id="metric-bfl" class="metric-value">--</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Numerical Aperture</div>
+            <div id="metric-na" class="metric-value green">--</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">RMS Spot Radius</div>
+            <div id="metric-rms-spot" class="metric-value">--</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Airy Disk Radius</div>
+            <div id="metric-airy-radius" class="metric-value">--</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Clear Transmission</div>
+            <div id="metric-transmission" class="metric-value green">100%</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Selected Component Inspector -->
+      <section class="sidebar-section" style="flex: 1;">
+        <h2 class="section-title">Selected Element Inspector</h2>
+        <div id="element-inspector">
+          <!-- Populated dynamically by app.js -->
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <!-- Bottom Status Bar -->
+  <footer class="app-statusbar">
+    <div class="status-left">
+      <span><span class="status-indicator"></span> Real-time Ray Tracer Active</span>
+      <span>Physics: Exact Snell's Vector Refraction</span>
+      <span>Dispersion: Sellmeier 1</span>
+    </div>
+    <div class="status-right">
+      <span>Drag element to reposition • Wheel to zoom • Shift+Drag for smooth continuous positioning</span>
+    </div>
+  </footer>
+
+  <!-- Modal: Interactive 3D Component CAD & Specification Inspector -->
+  <div id="modal-component-3d" class="modal-overlay" style="display: none;">
+    <div class="modal-container component-inspector-modal">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon">🧊</div>
+          <div>
+            <h2 id="modal-comp-name" class="modal-title">Thorlabs Component CAD</h2>
+            <div id="modal-comp-badges" class="modal-badge-row">
+              <span id="modal-comp-id" class="badge-pn">P/N: --</span>
+              <span id="modal-comp-type" class="badge-type">TYPE: --</span>
+              <span id="modal-comp-extra" class="badge-accent">--</span>
+            </div>
+          </div>
+        </div>
+        <button id="btn-close-modal-3d" class="btn-modal-close" title="Close CAD Inspector">✕</button>
+      </div>
+
+      <div class="modal-body-split">
+        <!-- 3D Interactive Viewport -->
+        <div class="modal-3d-viewport-wrapper">
+          <div id="component-3d-canvas-container" class="component-3d-canvas"></div>
+
+          <!-- Screen-Space 2D Annotations & Dimensions Overlay -->
+          <div id="cad-screen-overlay" class="cad-screen-overlay">
+            <svg id="cad-overlay-svg" class="cad-overlay-svg"></svg>
+            <div id="cad-annotations-container" class="cad-annotations-container"></div>
+          </div>
+
+          <!-- Viewport Floating HUD Controls -->
+          <div class="viewport-hud-toolbar">
+            <div class="hud-btn-group">
+              <button id="btn-view-iso" class="hud-action-btn active" title="Isometric Perspective">📐 Iso</button>
+              <button id="btn-view-front" class="hud-action-btn" title="Front View (Surface S1)">🎯 Front (S1)</button>
+              <button id="btn-view-rear" class="hud-action-btn" title="Rear View (Surface S2)">🔄 Rear (S2)</button>
+              <button id="btn-view-side" class="hud-action-btn" title="Side Profile / Sag">↔ Side</button>
+            </div>
+
+            <div class="hud-btn-group">
+              <button id="btn-toggle-dimensions" class="hud-toggle-btn active"
+                title="Toggle Mechanical Dimension Lines">📏 Dimensions</button>
+              <button id="btn-toggle-annotations" class="hud-toggle-btn active"
+                title="Toggle S1/S2 Surface Coatings & Notes">🏷️ Notes & Coatings</button>
+              <button id="btn-toggle-cutaway" class="hud-toggle-btn" title="Toggle 90° Cutaway Cross-Section">✂
+                Cutaway</button>
+            </div>
+          </div>
+
+          <div class="viewport-hint">
+            Rotate: Left Click + Drag • Pan: Right Click + Drag • Zoom: Mouse Wheel
+          </div>
+        </div>
+
+        <!-- Component Engineering Specification Dossier -->
+        <div class="modal-specs-sidebar">
+          <div class="specs-section-header">
+            <h3>Optomechanical Specifications</h3>
+            <span class="specs-tag">Thorlabs Official Spec</span>
+          </div>
+
+          <div id="modal-specs-content" class="specs-content-scroll">
+            <!-- Dynamically populated -->
+          </div>
+
+          <div class="specs-footer">
+            <button id="btn-modal-add-bench" class="btn-primary" style="width: 100%;">
+              ➕ Add This Part to Column
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Entry Script (ES Module) -->
+  
+  <!-- Secure Optics Sim AES-256 Decryptor & Loader -->
+  <div id="auth-lock-overlay" class="auth-lock-overlay">
+    <div class="auth-card">
+      <div class="auth-card-glow"></div>
+      <div class="auth-icon-badge">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+      </div>
+
+      <div class="auth-header-text">
+        <h2 class="auth-title">OpticStudio Column CAD</h2>
+        <div class="auth-badge">Zemax Kernel • AES-256 Encrypted</div>
+        <p class="auth-desc">Enter access password to decrypt the optical simulation engine and CAD workspace.</p>
+      </div>
+
+      <form id="auth-form" class="auth-form" onsubmit="event.preventDefault(); window.handleAuthSubmit();">
+        <div class="auth-input-wrapper">
+          <svg class="auth-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <input type="password" id="auth-password" class="auth-input" placeholder="Enter simulation password..." autocomplete="current-password" autofocus required />
+          <button type="button" id="btn-toggle-pwd" class="auth-pwd-toggle" title="Show / Hide Password">
+            👁️
+          </button>
+        </div>
+
+        <div class="auth-options">
+          <label class="auth-checkbox-label">
+            <input type="checkbox" id="auth-remember-session" checked />
+            <span>Keep unlocked in this browser tab</span>
+          </label>
+        </div>
+
+        <div id="auth-error-msg" class="auth-error-banner" style="display: none;"></div>
+
+        <button type="submit" id="btn-auth-unlock" class="auth-submit-btn">
+          <span class="btn-text">🔓 Decrypt & Launch Simulator</span>
+          <div class="btn-spinner" style="display: none;"></div>
+        </button>
+      </form>
+
+      <div class="auth-footer-note">
+        Hardware-accelerated in-memory AES-GCM decryption • Zero plaintext stored
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function() {
+    const SALT_LEN = 16;
+    const IV_LEN = 12;
+    const SESSION_KEY = 'optics_sim_auth_token';
+
+    const overlay = document.getElementById('auth-lock-overlay');
+    const pwdInput = document.getElementById('auth-password');
+    const toggleBtn = document.getElementById('btn-toggle-pwd');
+    const unlockBtn = document.getElementById('btn-auth-unlock');
+    const errorBanner = document.getElementById('auth-error-msg');
+    const rememberBox = document.getElementById('auth-remember-session');
+    const btnText = unlockBtn.querySelector('.btn-text');
+    const btnSpinner = unlockBtn.querySelector('.btn-spinner');
+
+    // Toggle password visibility
+    toggleBtn.addEventListener('click', () => {
+      if (pwdInput.type === 'password') {
+        pwdInput.type = 'text';
+        toggleBtn.textContent = '🙈';
+      } else {
+        pwdInput.type = 'password';
+        toggleBtn.textContent = '👁️';
+      }
+    });
+
+    // Derive AES-GCM key from password and salt
+    async function deriveKey(password, salt) {
+      const enc = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        enc.encode(password),
+        'PBKDF2',
+        false,
+        ['deriveKey']
+      );
+      return await crypto.subtle.deriveKey(
+        {
+          name: 'PBKDF2',
+          salt: salt,
+          iterations: 100000,
+          hash: 'SHA-256'
+        },
+        keyMaterial,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['decrypt']
+      );
+    }
+
+    // Decrypt payload
+    async function decryptPayload(arrayBuffer, password) {
+      const uint8 = new Uint8Array(arrayBuffer);
+      if (uint8.length < SALT_LEN + IV_LEN + 16) {
+        throw new Error('Corrupted or invalid encrypted bundle.');
+      }
+      const salt = uint8.slice(0, SALT_LEN);
+      const iv = uint8.slice(SALT_LEN, SALT_LEN + IV_LEN);
+      const ciphertext = uint8.slice(SALT_LEN + IV_LEN);
+
+      const key = await deriveKey(password, salt);
+      const decrypted = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: iv },
+        key,
+        ciphertext
+      );
+      return new TextDecoder().decode(decrypted);
+    }
+
+    // Attempt unlock
+    async function attemptUnlock(pwd, saveSession = true) {
+      errorBanner.style.display = 'none';
+      btnText.style.display = 'none';
+      btnSpinner.style.display = 'inline-block';
+      unlockBtn.disabled = true;
+
+      try {
+        const resp = await fetch('app.bundle.enc?v=' + Date.now());
+        if (!resp.ok) {
+          throw new Error('Failed to download encrypted simulation bundle (HTTP ' + resp.status + ').');
+        }
+        const buffer = await resp.arrayBuffer();
+        const code = await decryptPayload(buffer, pwd);
+
+        if (saveSession && rememberBox.checked) {
+          sessionStorage.setItem(SESSION_KEY, pwd);
+        }
+
+        // Dynamically import decrypted bundle
+        const blob = new Blob([code], { type: 'application/javascript' });
+        const blobUrl = URL.createObjectURL(blob);
+        await import(blobUrl);
+        URL.revokeObjectURL(blobUrl);
+
+        // Inject Lock button in header
+        injectLockButton();
+
+        // Smoothly fade out lock overlay
+        overlay.classList.add('auth-fade-out');
+        setTimeout(() => {
+          overlay.remove();
+        }, 400);
+
+      } catch (err) {
+        console.error('Decryption failed:', err);
+        sessionStorage.removeItem(SESSION_KEY);
+        errorBanner.textContent = 'Access Denied: Incorrect password or invalid decryption key.';
+        errorBanner.style.display = 'block';
+        pwdInput.classList.add('auth-input-shake');
+        setTimeout(() => pwdInput.classList.remove('auth-input-shake'), 500);
+        pwdInput.focus();
+        pwdInput.select();
+      } finally {
+        btnText.style.display = 'inline-block';
+        btnSpinner.style.display = 'none';
+        unlockBtn.disabled = false;
+      }
+    }
+
+    function injectLockButton() {
+      const headerControls = document.querySelector('.header-controls');
+      if (headerControls && !document.getElementById('btn-auth-lock-system')) {
+        const lockGroup = document.createElement('div');
+        lockGroup.className = 'control-group-inline';
+        lockGroup.innerHTML = '<button id="btn-auth-lock-system" class="btn-secondary" title="Lock Optical Workspace">🔒 Lock</button>';
+        headerControls.appendChild(lockGroup);
+
+        document.getElementById('btn-auth-lock-system').addEventListener('click', () => {
+          sessionStorage.removeItem(SESSION_KEY);
+          location.reload();
+        });
+      }
+    }
+
+    window.handleAuthSubmit = function() {
+      const pwd = pwdInput.value;
+      if (!pwd) return;
+      attemptUnlock(pwd, true);
+    };
+
+    // Auto-login from sessionStorage if available
+    const saved = sessionStorage.getItem(SESSION_KEY);
+    if (saved) {
+      attemptUnlock(saved, false);
+    }
+  })();
+  </script>
+
+</body>
+
+</html>
